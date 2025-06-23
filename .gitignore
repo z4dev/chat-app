@@ -1,3 +1,6 @@
 API/node_modules
+node_modules
+GUI/node_modules
+GUI/.env
 API/.env
 API/.DS_Store

@@ -3,61 +3,361 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <title>Socket.IO Chat</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+        * {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .messages {
-            height: 300px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-        form {
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
             display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        input[type="text"] {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
+
+        .chat-container {
+            width: 90%;
+            max-width: 1000px;
+            height: 80vh;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Login Screen */
+        .login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .login-form {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .login-form h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
             border-radius: 5px;
+            font-size: 16px;
         }
-        button {
-            padding: 10px 15px;
-            margin-left: 10px;
-            background-color: #28a745;
+
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
             color: white;
             border: none;
             border-radius: 5px;
+            font-size: 16px;
             cursor: pointer;
+            margin-top: 10px;
         }
-        button:hover {
-            background-color: #218838;
+
+        .login-form button:hover {
+            background: #5a6fd8;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #34495e;
+            border-bottom: 1px solid #4a5f7a;
+        }
+
+        .sidebar-header h3 {
+            margin-bottom: 5px;
+        }
+
+        .connection-status {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .connection-status.connected {
+            color: #2ecc71;
+        }
+
+        .connection-status.disconnected {
+            color: #e74c3c;
+        }
+
+        .rooms-section, .users-section {
+            padding: 15px;
+        }
+
+        .rooms-section h4, .users-section h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .room-item, .user-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .room-item:hover {
+            background: #34495e;
+        }
+
+        .room-item.active {
+            background: #3498db;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .typing-indicator {
+            font-size: 10px;
+            color: #f39c12;
+        }
+
+        /* Main Chat Area */
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: #ecf0f1;
+            border-bottom: 1px solid #bdc3c7;
+        }
+
+        .chat-header h2 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .room-info {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .messages-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message.own {
+            background: #3498db;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.other {
+            background: white;
+            border: 1px solid #e1e8ed;
+        }
+
+        .message.system {
+            background: #f39c12;
+            color: white;
+            text-align: center;
+            margin: 10px auto;
+            max-width: 50%;
+            font-size: 14px;
+        }
+
+        .message.private {
+            background: #9b59b6;
+            color: white;
+            border-left: 4px solid #8e44ad;
+        }
+
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .typing-users {
+            padding: 10px 20px;
+            font-style: italic;
+            color: #7f8c8d;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        /* Message Input */
+        .message-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e1e8ed;
+        }
+
+        .input-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-field {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .message-field:focus {
+            border-color: #3498db;
+        }
+
+        .send-button {
+            padding: 12px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+
+        .send-button:hover {
+            background: #2980b9;
+        }
+
+        .send-button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .chat-container {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            .sidebar {
+                width: 200px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="messages">
-
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-form">
+            <h2>Join Chat</h2>
+            <input type="text" id="usernameInput" placeholder="Enter your username" maxlength="20">
+            <input type="text" id="roomInput" placeholder="Room name (default: general)" maxlength="20">
+            <button id="joinButton">Join Chat</button>
         </div>
-        <form action="">
-            <input type="text" name="message" id="message" placeholder="Type your message here...">
-            <button type="submit">Send</button>
-        </form>
     </div>
+
+    <!-- Main Chat Interface -->
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3 id="currentUser">Chat</h3>
+                <div class="connection-status" id="connectionStatus">Connecting...</div>
+            </div>
+            
+            <div class="rooms-section">
+                <h4>ROOMS</h4>
+                <div id="roomsList">
+                    <div class="room-item active" data-room="general">general</div>
+                </div>
+            </div>
+            
+            <div class="users-section">
+                <h4>ONLINE USERS (<span id="userCount">0</span>)</h4>
+                <div id="usersList"></div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+            <div class="chat-header">
+                <h2 id="currentRoom">general</h2>
+                <div class="room-info" id="roomInfo">Welcome to the chat!</div>
+            </div>
+            
+            <div class="messages-container" id="messagesContainer"></div>
+            
+            <div class="typing-users" id="typingUsers"></div>
+            
+            <div class="message-input">
+                <form class="input-form" id="messageForm">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        class="message-field" 
+                        placeholder="Type your message..." 
+                        maxlength="500"
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="send-button" id="sendButton">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="./script.js"></script>
 </body>
 </html>
